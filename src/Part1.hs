@@ -15,7 +15,8 @@ module Part1
 --
 -- На вход функции подаются неотрицательные числа
 prob1 :: Int -> Int
-prob1 number = (3 * number + 123) `mod` 65537
+prob1 x = mod ((x * 3) + 123) 65537
+
 
 ------------------------------------------------------------
 -- PROBLEM #2
@@ -24,9 +25,8 @@ prob1 number = (3 * number + 123) `mod` 65537
 -- * нечётные числа увеличивает втрое и добавляет единицу
 -- * чётные числа делит на два
 prob2 :: Integer -> Integer
-prob2 number
-    | even number = number `div` 2
-    | otherwise = number * 3 + 1
+prob2 n = if even n then div n 2 else n * 3 + 1
+
 
 ------------------------------------------------------------
 -- PROBLEM #3
@@ -50,13 +50,12 @@ prob2 number
 --
 -- Для любой функции step и n == 1 ответом будет 0.
 prob3 :: (Integer -> Integer) -> Integer -> Integer
-prob3 stepFunc number = funcWithCounter number 0
-    where
-        funcWithCounter :: Integer -> Integer -> Integer
-        funcWithCounter 1 counter = counter
-        funcWithCounter currentNumber counter = funcWithCounter 
-            (stepFunc currentNumber)
-            (succ counter)
+prob3 step n = rec n 0
+  where
+    rec :: Integer -> Integer -> Integer
+    rec 1 i = i
+    rec n i = rec (step n) (i+1)
+
 
 ------------------------------------------------------------
 -- PROBLEM #4
@@ -73,17 +72,15 @@ prob3 stepFunc number = funcWithCounter number 0
 --
 -- Число n по модулю не превосходит 10^5
 prob4 :: Integer -> Integer
-prob4 seqIndex
-    | seqIndex >= 0 = positive 1 1 seqIndex
-    | otherwise = negative 1 1 seqIndex
-    where
-        positive first second currentSeqIndex 
-            | currentSeqIndex == 0 = first
-            | otherwise = positive second (first + second) (pred currentSeqIndex)
+prob4 n
+  | n == (-1) = 0
+  | n < 0 = prob4 (-n - 2) * (if even n then 1 else -1)
+  | otherwise = iter n 0 1
+  
+iter :: Integer -> Integer -> Integer -> Integer
+iter 0 a b = b
+iter i a b = iter (i - 1) b (a + b)
 
-        negative first second currentSeqIndex
-            | currentSeqIndex == 0 = second
-            | otherwise = negative second (first - second) (succ currentSeqIndex)
 
 ------------------------------------------------------------
 -- PROBLEM #5
@@ -94,14 +91,13 @@ prob4 seqIndex
 -- Числа n и k положительны и не превосходят 10^8.
 -- Число 1 не считается простым числом
 prob5 :: Integer -> Integer -> Bool
-prob5 n k = all (< k) (getPrimeDivisors n)
-    where
-        getPrimeDivisors :: Integer -> [Integer]
-        getPrimeDivisors = getDivisorsWithCurrent 2
-
-        getDivisorsWithCurrent :: Integer -> Integer -> [Integer]
-        getDivisorsWithCurrent _ 1 = []
-        getDivisorsWithCurrent divisor number
-            | divisor * divisor > number = [number]
-            | number `mod` divisor == 0 = divisor : getDivisorsWithCurrent divisor (number `div` divisor)
-            | otherwise = getDivisorsWithCurrent (divisor + 1) number
+prob5 n k = all (< k) (primeFactors n) 
+        where 
+            factorize :: Integer -> Integer -> [Integer]
+            factorize _ 1 = [] 
+            factorize d n 
+                | d * d > n = [n]
+                | n `mod` d == 0 = d : factorize d (n `div` d)
+                | otherwise = factorize (d + 1) n
+            primeFactors :: Integer -> [Integer]
+            primeFactors = factorize 2

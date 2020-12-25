@@ -2,20 +2,15 @@ module Part2 where
 
 import Part2.Types
 
-import Data.Function ((&))
-import Data.List (find)
-import Control.Monad (msum)
-
 ------------------------------------------------------------
 -- PROBLEM #6
 --
 -- Написать функцию, которая преобразует значение типа
 -- ColorLetter в символ, равный первой букве значения
 prob6 :: ColorLetter -> Char
-prob6 colorLetter = case colorLetter of
-    RED   -> 'R'
-    GREEN -> 'G'
-    BLUE  -> 'B'
+prob6 RED = 'R'
+prob6 GREEN = 'G'
+prob6 BLUE = 'B'
 
 ------------------------------------------------------------
 -- PROBLEM #7
@@ -23,8 +18,9 @@ prob6 colorLetter = case colorLetter of
 -- Написать функцию, которая проверяет, что значения
 -- находятся в диапазоне от 0 до 255 (границы входят)
 prob7 :: ColorPart -> Bool
-prob7 colorPart = asInt >= 0 && asInt <= 255
-    where asInt = prob9 colorPart
+prob7 colorPart = colorInt >= 0 && colorInt <= 255
+    where colorInt = prob9 colorPart
+
 
 ------------------------------------------------------------
 -- PROBLEM #8
@@ -32,10 +28,10 @@ prob7 colorPart = asInt >= 0 && asInt <= 255
 -- Написать функцию, которая добавляет в соответствующее
 -- поле значения Color значение из ColorPart
 prob8 :: Color -> ColorPart -> Color
-prob8 color colorPart = case colorPart of
-    Red   redValue   -> color { red   = (color & red)   + redValue   }
-    Green greenValue -> color { green = (color & green) + greenValue }
-    Blue  blueValue  -> color { blue  = (color & blue)  + blueValue  }
+prob8 c p = case p of
+  Red a -> c {red = red c + a}
+  Green a -> c {green = green c + a}
+  Blue a -> c {blue = blue c + a}
 
 ------------------------------------------------------------
 -- PROBLEM #9
@@ -54,28 +50,24 @@ prob9 colorPart = case colorPart of
 -- Написать функцию, которая возвращает компонент Color, у
 -- которого наибольшее значение (если такой единственный)
 prob10 :: Color -> Maybe ColorPart
-prob10 color
-    | length getMaxValues > 1 = Nothing
-    | otherwise = find (\part -> prob9 part == maximum valuesList) colorsList
-    where
-        colorsList =
-            [
-                Red   $ color & red,
-                Green $ color & green,
-                Blue  $ color & blue
-            ]
-        valuesList = map prob9 colorsList
-        getMaxValues = filter (\part -> prob9 part == maximum valuesList) colorsList
+prob10 c | red c > blue c && red c > green c = Just  (Red (red c))
+         | green c > red c && green c > blue c = Just  (Green (green c))
+         | red c < blue c && blue c > green c = Just  (Blue (blue c))
+prob10 c = Nothing
 
 ------------------------------------------------------------
 -- PROBLEM #11
 --
 -- Найти сумму элементов дерева
 prob11 :: Num a => Tree a -> a
-prob11 tree = leftSum + (tree & root) + rightSum
-    where
-        leftSum = maybe 0 prob11 $ tree & left
-        rightSum = maybe 0 prob11 $ tree & right
+prob11 tree =
+    root tree +
+    fmap prob11 (left tree) `orElse` 0 +
+    fmap prob11 (right tree) `orElse` 0
+
+orElse :: Maybe a -> a -> a
+orElse (Just x) _ = x
+orElse Nothing x = x
 
 ------------------------------------------------------------
 -- PROBLEM #12
@@ -86,24 +78,18 @@ prob11 tree = leftSum + (tree & root) + rightSum
 -- а все элементы правого поддерева -- не меньше элемента
 -- в узле)
 prob12 :: Ord a => Tree a -> Bool
-prob12 tree = and
-    [
-        leftIsSearchTree,
-        leftValueIsLess,
-        rightValueIsMoreOrEqual,
-        rightIsSearchTree
-    ]
-    where
-        leftIsSearchTree  = maybe True prob12 $ tree & left
-        rightIsSearchTree = maybe True prob12 $ tree & right
+prob12 = checkTree
 
-        leftValueIsLess = maybe True
-            (\leftSubTree -> (leftSubTree & root) < (tree & root))
-            $ tree & left
+checkTree :: Ord a => Tree a -> Bool
+checkTree tree = checkLeft (left tree) (root tree) && checkRight (right tree) (root tree)
 
-        rightValueIsMoreOrEqual = maybe True
-            (\rightSubTree -> (rightSubTree & root) >= (tree & root))
-            $ tree & right
+checkRight :: Ord a => Maybe (Tree a) -> a -> Bool
+checkRight Nothing x = True
+checkRight (Just tree) parent = root tree >= parent && checkTree tree
+
+checkLeft :: Ord a => Maybe (Tree a) -> a -> Bool
+checkLeft Nothing x = True
+checkLeft (Just tree) parent = root tree < parent && checkTree tree
 
 ------------------------------------------------------------
 -- PROBLEM #13
@@ -112,17 +98,14 @@ prob12 tree = and
 -- поддерево, в корне которого находится значение, если оно
 -- есть в дереве поиска; если его нет - вернуть Nothing
 prob13 :: Ord a => a -> Tree a -> Maybe (Tree a)
-prob13 value tree
-    | value == (tree & root) = Just tree
-    | otherwise = msum
-        [
-            do
-                leftSubTree <- tree & left
-                prob13 value leftSubTree,
-            do
-                rightSubTree <- tree & right
-                prob13 value rightSubTree
-        ]
+prob13 a tree = hasValue a (Just tree)
+
+hasValue :: Ord a => a -> Maybe (Tree a) -> Maybe (Tree a)
+hasValue a Nothing = Nothing
+hasValue a (Just tree)
+  | a > root tree = hasValue a (right tree)
+  | a < root tree = hasValue a (left tree)
+  | otherwise = Just tree
 
 ------------------------------------------------------------
 -- PROBLEM #14
@@ -130,61 +113,41 @@ prob13 value tree
 -- Заменить () на числа в порядке обхода "правый, левый,
 -- корень", начиная с 1
 prob14 :: Tree () -> Tree Int
-prob14 unitTree = traverseTree (getNodesCount unitTree) unitTree
-    where
-        traverseTree :: Int -> Tree () -> Tree Int
-        traverseTree nodeNumber tree = Tree
-            (do
-                leftSubTree <- tree & left
-                return $ traverseTree (pred nodeNumber) leftSubTree)
-            nodeNumber
-            (do
-                rightSubTree <- tree & right
-                return $ traverseTree (getRightDecrementFunc tree nodeNumber) rightSubTree)
+prob14 tree = myTraverse tree (getNodesCountInTree tree) 
 
-        getRightDecrementFunc :: Tree a -> (Int -> Int)
-        getRightDecrementFunc tree = case tree & left of
-            Just leftSubTree -> subtract (getNodesCount leftSubTree + 1)
-            Nothing -> pred
+myTraverse tree num = 
+  Tree (do
+     maybeLeftTree <- left tree
+     return (myTraverse maybeLeftTree (num - 1))
+  ) 
+  num 
+  (do 
+    maybeRightTree <- right tree
+    return (myTraverse maybeRightTree (getNumberForRightTree tree num))
+  )
 
-        getNodesCount :: Tree a -> Int
-        getNodesCount tree = succ $ sum
-            [
-                maybe 0 getNodesCount (tree & left),
-                maybe 0 getNodesCount (tree & right)
-            ]
+getNumberForRightTree tree num = case left tree of
+    Just leftSubTree -> num - (getNodesCountInTree leftSubTree + 1)
+    Nothing -> num - 1
+
+getNodesCountInTree tree = 1 + maybe 0 getNodesCountInTree (left tree) + maybe 0 getNodesCountInTree (right tree)
 
 ------------------------------------------------------------
 -- PROBLEM #15
 --
--- Выполнить вращение дерева влево относительно корня:
--- 4
---  \          6
---   6   =>   / \
---    \      4   8
---     8
+-- Выполнить вращение дерева влево относительно корня
+-- (https://en.wikipedia.org/wiki/Tree_rotation)
 prob15 :: Tree a -> Tree a
-prob15 tree = maybe tree leftRotation $ tree & right
-    where
-        leftRotation rightSubTree = rightSubTree { left = Just oldRoot }
-            where
-                oldRoot = tree { right = rightSubTree & left }
+prob15 tree = maybe tree (\rt -> rt { left = Just ( tree { right = left rt  }) }) (right tree)
 
 ------------------------------------------------------------
 -- PROBLEM #16
 --
--- Выполнить вращение дерева вправо относительно корня:
---     8
---    /        6
---   6   =>   / \
---  /        4   8
--- 4
+-- Выполнить вращение дерева вправо относительно корня
+-- (https://en.wikipedia.org/wiki/Tree_rotation)
 prob16 :: Tree a -> Tree a
-prob16 tree = maybe tree rightRotation $ tree & left
-    where
-        rightRotation leftSubTree = leftSubTree { right = Just oldRoot }
-            where
-                oldRoot = tree { left = leftSubTree & right }
+prob16 tree = maybe tree (\lt -> lt { right = Just (tree { left = right lt  }) }) (left tree)
+
 
 ------------------------------------------------------------
 -- PROBLEM #17
@@ -193,76 +156,4 @@ prob16 tree = maybe tree rightRotation $ tree & left
 -- разница высот поддеревьев не превосходила по модулю 1
 -- (например, преобразовать в полное бинарное дерево)
 prob17 :: Tree a -> Tree a
-prob17 tree
-    | isBalanced tree = tree
-    | otherwise = (prob17 . performRotations . handleSubTrees) tree
-    where
-        -- Выполнить рекурсивный вызов балансировки на левом и правом поддеревьях.
-        handleSubTrees :: Tree a -> Tree a
-        handleSubTrees currentTree = currentTree
-            {
-                left = do
-                    leftSubTree <- currentTree & left
-                    return $ prob17 leftSubTree,
-                right = do
-                    rightSubTree <- currentTree & right
-                    return $ prob17 rightSubTree
-            }
-
-        -- Выполнить вращение дерева относительно текущего корня в зависимости от
-        -- разности высот поддеревьев (LL, LR, RR, RL).
-        performRotations :: Tree a -> Tree a
-        performRotations currentTree
-            | isBalanced currentTree = currentTree
-
-            | getHeight (currentTree & left) - getHeight (currentTree & right) > 1 =
-                if getHeight (currentTree & left >>= left) > getHeight (currentTree & left >>= right)
-                then prob16 currentTree
-                else leftRightRotation currentTree
-
-            | otherwise =
-                if getHeight (currentTree & right >>= left) > getHeight (currentTree & right >>= right)
-                then rightLeftRotation currentTree
-                else prob15 currentTree
-
--- Сбалансировано ли дерево.
-isBalanced :: Tree a -> Bool
-isBalanced tree =
-    abs (getHeight (tree & left) - getHeight (tree & right)) <= 1
-    && maybe True isBalanced (tree & left)
-    && maybe True isBalanced (tree & right)
-
--- Получить высоту дерева.
-getHeight :: Maybe (Tree a) -> Integer
-getHeight Nothing = 0
-getHeight (Just tree) = succ $ max
-    (getHeight $ tree & left)
-    (getHeight $ tree & right)
-
--- Выполнить большее правое (RL) вращение дерева.
--- 4       4
---  \       \          6
---   8  =>   6   =>   / \
---  /         \      4   8
--- 6           8
-rightLeftRotation :: Tree a -> Tree a
-rightLeftRotation tree = prob15 $ tree 
-    { 
-        right = do 
-            rightSubTree <- tree & right
-            return $ prob16 rightSubTree
-    }
-
--- Выполнить большое левое (LR) вращение дерева.
---   8         8
---  /         /        6
--- 4    =>   6   =>   / \
---  \       /        4   8
---   6     4
-leftRightRotation :: Tree a -> Tree a
-leftRightRotation tree = prob16 $ tree
-    {
-        left = do
-            leftSubTree <- tree & left
-            return $ prob15 leftSubTree
-    }
+prob17 = error "Implement me!"

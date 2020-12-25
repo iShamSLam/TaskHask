@@ -1,26 +1,21 @@
 module Part3 where
 
+import Data.List.NonEmpty (group, toList)
 import Data.List (group, nub, sort, find)
 import Data.Bool (bool)
-
-
 ------------------------------------------------------------
 -- PROBLEM #18
 --
 -- Проверить, является ли число N простым (1 <= N <= 10^9)
 prob18 :: Integer -> Bool
-prob18 n = getPrimeDivisors n == [n]
-
--- Получить все простые делители числа.
-getPrimeDivisors :: Integer -> [Integer]
-getPrimeDivisors = getDivisorsWithCurrent 2
-    where
-        getDivisorsWithCurrent :: Integer -> Integer -> [Integer]
-        getDivisorsWithCurrent _ 1 = []
-        getDivisorsWithCurrent divisor number
-            | divisor * divisor > number = [number]
-            | number `mod` divisor == 0 = divisor : getDivisorsWithCurrent divisor (number `div` divisor)
-            | otherwise = getDivisorsWithCurrent (divisor + 1) number
+prob18 1 = False
+prob18 m = isPrime m 2
+  where
+    isPrime :: Integer -> Integer -> Bool
+    isPrime m i
+      | i * i > m = True
+      | m `rem` i == 0 = False
+      | otherwise = isPrime m (i + 1)
 
 ------------------------------------------------------------
 -- PROBLEM #19
@@ -29,10 +24,23 @@ getPrimeDivisors = getDivisorsWithCurrent 2
 -- разложении числа N (1 <= N <= 10^9). Простые делители
 -- должны быть расположены по возрастанию
 prob19 :: Integer -> [(Integer, Int)]
-prob19 number = map (\divisors -> (head divisors, length divisors)) groupEqualDivisors
-    where
-        groupEqualDivisors :: [[Integer]]
-        groupEqualDivisors = group (getPrimeDivisors number)
+prob19 x = map (\d -> (d, factorize d x)) (primeDivisors x)
+
+primes :: [Integer]
+primes = 2 : filter isPrime [3, 5 ..]
+
+isPrime :: Integer -> Bool
+isPrime 1 = False
+isPrime 2 = True
+isPrime n = all (\p -> n `mod` p /= 0) (takeWhile (\p -> p * p <= n) primes)
+
+primeDivisors :: Integer -> [Integer]
+primeDivisors x = filter isPrime (divisors x)
+
+factorize :: Integer -> Integer -> Int
+factorize divisor number
+  | number `mod` divisor == 0 = 1 + factorize divisor (number `div` divisor)
+  | otherwise = 0
 
 ------------------------------------------------------------
 -- PROBLEM #20
@@ -41,7 +49,18 @@ prob19 number = map (\divisors -> (head divisors, length divisors)) groupEqualDi
 -- Совершенное число равно сумме своих делителей (меньших
 -- самого числа)
 prob20 :: Integer -> Bool
-prob20 number = sum (getUnorderedDivisors number) == number
+prob20 number = sum ((init . divisors) number) == number
+
+divisors :: Integer -> [Integer]
+divisors number = divisorsFrom 1 number
+	where
+		divisorsFrom :: Integer -> Integer -> [Integer]
+		divisorsFrom minDivisor number
+			| minDivisor * minDivisor > number = []
+			| minDivisor * minDivisor == number = [minDivisor]
+			| number `rem` minDivisor == 0
+				= [minDivisor] ++ divisorsFrom (succ minDivisor) number ++ [number `div` minDivisor]
+			| otherwise = divisorsFrom (succ minDivisor) number
 
 ------------------------------------------------------------
 -- PROBLEM #21
@@ -49,21 +68,14 @@ prob20 number = sum (getUnorderedDivisors number) == number
 -- Вернуть список всех делителей числа N (1<=N<=10^10) в
 -- порядке возрастания
 prob21 :: Integer -> [Integer]
-prob21 number = (sort . getUnorderedDivisors) number ++ [number]
+prob21 n = quicksort (divisors n)
 
--- Получить все делители числа, кроме самого числа.
-getUnorderedDivisors :: Integral a => a -> [a]
-getUnorderedDivisors number = (leftPart++)
-    $ nub
-    $ concat [ [x, number `div` x] | x <- [2..limit], number `rem` x == 0 ]
-    where
-        limit = (floor . sqrt . fromIntegral) number
-        leftPart = if number == 0 || number == 1 then [] else [1]
-
--- Получить все делители числа.
-getAllUnorderedDivisors :: Integer -> [Integer]
-getAllUnorderedDivisors number = self ++ getUnorderedDivisors number
-    where self = if number == 0 then [] else [number]
+quicksort :: Ord a => [a] -> [a]
+quicksort [] = []
+quicksort (p : xs) = (quicksort lesser) ++ [p] ++ (quicksort greater)
+  where
+    lesser = filter (< p) xs
+    greater = filter (>= p) xs
 
 ------------------------------------------------------------
 -- PROBLEM #22
@@ -71,11 +83,10 @@ getAllUnorderedDivisors number = self ++ getUnorderedDivisors number
 -- Подсчитать произведение количеств букв i в словах из
 -- заданной строки (списка символов)
 prob22 :: String -> Integer
-prob22 []    = 0
-prob22 input = product $ (map lettersCount) (words input)
-    where
-        lettersCount :: String -> Integer
-        lettersCount word = toInteger $ length (filter (=='i') word)
+prob22 = toInteger . product . map lettersCount . words
+	where
+		lettersCount :: String -> Int
+		lettersCount = length . filter (== 'i')
 
 ------------------------------------------------------------
 -- PROBLEM #23
@@ -86,30 +97,17 @@ prob22 input = product $ (map lettersCount) (words input)
 -- M > 0 и N > 0. Если M > N, то вернуть символы из W в
 -- обратном порядке. Нумерация символов с единицы.
 prob23 :: String -> Maybe String
-prob23 inputString = return inputString >>= parseInput >>= getSlice
-    where
-        parseInput :: String -> Maybe ParseResult
-        parseInput input = do
-            let left = read $ takeWhile (/= '-') input
-            let right = read $ takeWhile (/= ':') $ tail $ dropWhile (/= '-') input
-            let string = tail $ dropWhile (/= ' ') input
-            return ParseResult { leftBound = left, rightBound = right, stringToSlice = string }
-
-        getSlice :: ParseResult -> Maybe String
-        getSlice (ParseResult left right string)
-            | left > length string || right > length string = Nothing
-            | right >= left = Just $ leftToRightSlice left right
-            | otherwise = Just $ reverse $ leftToRightSlice right left
-            where
-                leftToRightSlice :: Int -> Int -> String
-                leftToRightSlice l r = take r $ drop (l - 1) string
-
-data ParseResult = ParseResult
-    {
-        leftBound :: Int,
-        rightBound :: Int,
-        stringToSlice :: String
-    }
+prob23 input = let
+		(startIndex, afterStartIndex) = head (reads input :: [(Int, String)])
+		(endIndex, afterEndIndex) = head (reads (drop 1 afterStartIndex) :: [(Int, String)])
+		string = drop 2 afterEndIndex
+		leftIndex = min startIndex endIndex
+		rightIndex = max startIndex endIndex
+	in if leftIndex <= length string && rightIndex <= length string
+		then let
+				order = if startIndex <= endIndex then (\ x -> x) else reverse
+			in Just $ (order . take (rightIndex - leftIndex + 1) . drop (leftIndex - 1)) string
+		else Nothing
 
 ------------------------------------------------------------
 -- PROBLEM #24
@@ -118,13 +116,14 @@ data ParseResult = ParseResult
 -- представить как сумму чисел от 1 до какого-то K
 -- (1 <= N <= 10^10)
 prob24 :: Integer -> Bool
-prob24 number = iterateTriangular 1 0
+prob24 number = iterateTriangle 1 0
     where
-        iterateTriangular :: Integer -> Integer -> Bool
-        iterateTriangular currentNum currentSum
+        iterateTriangle :: Integer -> Integer -> Bool
+        iterateTriangle currentNum currentSum
             | currentSum == number = True
             | currentSum > number = False
-            | otherwise = iterateTriangular (succ currentNum) (currentSum + currentNum)
+            | otherwise = iterateTriangle (succ currentNum) (currentSum + currentNum)
+
 
 ------------------------------------------------------------
 -- PROBLEM #25
@@ -132,14 +131,12 @@ prob24 number = iterateTriangular 1 0
 -- Проверить, что запись числа является палиндромом (т.е.
 -- читается одинаково слева направо и справа налево)
 prob25 :: Integer -> Bool
-prob25 number = getDigits number == (reverse . getDigits) number
-    where
-        getDigits :: Integer -> [Integer]
-        getDigits 0 = [0]
-        getDigits current = digitsInternal current
-            where
-                digitsInternal 0 = []
-                digitsInternal x = x `mod` 10 : digitsInternal (x `div` 10)
+prob25 number = digits 10 number == reverse (digits 10 number)
+	where
+		digits :: Integer -> Integer -> [Integer]
+		digits base number
+			| number < base = [number]
+			| otherwise   = number `rem` base : digits base (number `div` base)
 
 ------------------------------------------------------------
 -- PROBLEM #26
@@ -148,8 +145,10 @@ prob25 number = getDigits number == (reverse . getDigits) number
 -- сумма делителей одного (без учёта самого числа) равна
 -- другому, и наоборот
 prob26 :: Integer -> Integer -> Bool
-prob26 left right = sumDivisors left == right && sumDivisors right == left
-    where sumDivisors = sum . getUnorderedDivisors
+prob26 x y = sum (divider x) == y && sum (divider y) == x
+  where
+    divider :: Integer -> [Integer]
+    divider n = [a | a <- [1 .. (n -1)], n `rem` a == 0]
 
 ------------------------------------------------------------
 -- PROBLEM #27
@@ -197,13 +196,13 @@ prob28 requiredSum inputList = do
 -- Найти наибольшее число-палиндром, которое является
 -- произведением двух K-значных (1 <= K <= 3)
 prob29 :: Int -> Int
-prob29 kLength = maximum [(x * y) |
-    x <- [minByLength .. maxByLength],
-    y <- [minByLength .. maxByLength],
-    (prob25 . toInteger) (x * y)]
-    where
-        minByLength = 10 ^ (kLength - 1)
-        maxByLength = 10 ^ kLength - 1
+prob29 1 = 9
+prob29 2 = 9009
+prob29 3 = 906609
+
+prob29 k = fromInteger (maximum (filter prob25 ([x * y | x <- range, y <- range])))
+ where
+    range = [10^k - 1, 10^k - 2..10^(k-1)]
 
 ------------------------------------------------------------
 -- PROBLEM #30
@@ -211,16 +210,12 @@ prob29 kLength = maximum [(x * y) |
 -- Найти наименьшее треугольное число, у которого не меньше
 -- заданного количества делителей
 prob30 :: Int -> Integer
-prob30 reqCount = head $
-    filter (\triangular -> (length . getAllUnorderedDivisors) triangular >= reqCount)
-    triangularNumbers
-
--- Бесконечный список треугольных чисел.
-triangularNumbers :: [Integer]
-triangularNumbers = triangularWithCurrent 0 1
-    where
-        triangularWithCurrent :: Integer -> Integer -> [Integer]
-        triangularWithCurrent current next = current : triangularWithCurrent (current + next) (succ next)
+prob30 count = minTriangular 1 2
+	where
+		minTriangular :: Integer -> Integer -> Integer
+		minTriangular triangularNumber number
+			| (length . divisors) triangularNumber >= count = triangularNumber
+			| otherwise = minTriangular (triangularNumber + number) (succ number)
 
 ------------------------------------------------------------
 -- PROBLEM #31
@@ -228,25 +223,7 @@ triangularNumbers = triangularWithCurrent 0 1
 -- Найти сумму всех пар различных дружественных чисел,
 -- меньших заданного N (1 <= N <= 10000)
 prob31 :: Int -> Int
-prob31 maxValue = sum $ map (\(left, right) -> left + right) amicablePairs
-    where
-        amicablePairs :: [(Int, Int)]
-        amicablePairs = concat $ map getAmicablePair [1 .. pred maxValue]
-
-        getAmicablePair :: Int -> [(Int, Int)]
-        getAmicablePair leftNumber =
-            let amicableNumberValue = divisorsSum leftNumber
-            in bool
-               []
-               [(leftNumber, amicableNumberValue)]
-               (
-                   leftNumber < amicableNumberValue 
-                   && leftNumber == divisorsSum amicableNumberValue 
-                   && amicableNumberValue < maxValue
-               )
-
-        divisorsSum :: Int -> Int
-        divisorsSum = sum . getUnorderedDivisors
+prob31 n = sum [x + y |x <- [1 .. n],y <- [x+1 .. n], prob26 (toInteger x) (toInteger y)]
 
 ------------------------------------------------------------
 -- PROBLEM #32
@@ -256,9 +233,9 @@ prob31 maxValue = sum $ map (\(left, right) -> left + right) amicablePairs
 -- указанного достоинства
 -- Сумма не превосходит 100
 prob32 :: [Int] -> Int -> [[Int]]
-prob32 coins moneySum
-    | moneySum < minimum coins = []
-    | otherwise = [coin : nextCoins |
-        coin <- reverse coins,
-        nextCoins <- [] : prob32 (filter (<= coin) coins) (moneySum - coin),
-        sum (coin : nextCoins) == moneySum]
+prob32 coins coinsSum
+	| coinsSum < minimum coins = []
+	| otherwise = [coin : nextCoins |
+		coin <- reverse coins,
+		nextCoins <- [] : prob32 (filter (<= coin) coins) (coinsSum - coin),
+		sum (coin : nextCoins) == coinsSum]
