@@ -1,19 +1,26 @@
 module Part3 where
-import Data.List
+
+import Data.List (group, nub, sort, find)
+import Data.Bool (bool)
+
+
 ------------------------------------------------------------
 -- PROBLEM #18
 --
 -- Проверить, является ли число N простым (1 <= N <= 10^9)
 prob18 :: Integer -> Bool
-prob18 1 = False
-prob18 n = isPrime n
+prob18 n = getPrimeDivisors n == [n]
 
-primeNums :: [Integer]
-primeNums = 2 : filter isPrime [3, 5 ..]
-
-isPrime :: Integer -> Bool
-isPrime 1 = False
-isPrime n = all (\x -> mod n x /= 0) (takeWhile (\x -> x * x <= n) primeNums)
+-- Получить все простые делители числа.
+getPrimeDivisors :: Integer -> [Integer]
+getPrimeDivisors = getDivisorsWithCurrent 2
+    where
+        getDivisorsWithCurrent :: Integer -> Integer -> [Integer]
+        getDivisorsWithCurrent _ 1 = []
+        getDivisorsWithCurrent divisor number
+            | divisor * divisor > number = [number]
+            | number `mod` divisor == 0 = divisor : getDivisorsWithCurrent divisor (number `div` divisor)
+            | otherwise = getDivisorsWithCurrent (divisor + 1) number
 
 ------------------------------------------------------------
 -- PROBLEM #19
@@ -22,10 +29,10 @@ isPrime n = all (\x -> mod n x /= 0) (takeWhile (\x -> x * x <= n) primeNums)
 -- разложении числа N (1 <= N <= 10^9). Простые делители
 -- должны быть расположены по возрастанию
 prob19 :: Integer -> [(Integer, Int)]
-prob19 n = map (\x -> (x, prob19helper x n)) (filter isPrime (prob21 n))
-
-prob19helper d n | mod n d == 0 = 1 + prob19helper d (div n d)
-                 | otherwise = 0
+prob19 number = map (\divisors -> (head divisors, length divisors)) groupEqualDivisors
+    where
+        groupEqualDivisors :: [[Integer]]
+        groupEqualDivisors = group (getPrimeDivisors number)
 
 ------------------------------------------------------------
 -- PROBLEM #20
@@ -34,7 +41,7 @@ prob19helper d n | mod n d == 0 = 1 + prob19helper d (div n d)
 -- Совершенное число равно сумме своих делителей (меньших
 -- самого числа)
 prob20 :: Integer -> Bool
-prob20 n = sum (prob21 n) == n*2
+prob20 number = sum (getUnorderedDivisors number) == number
 
 ------------------------------------------------------------
 -- PROBLEM #21
@@ -42,27 +49,33 @@ prob20 n = sum (prob21 n) == n*2
 -- Вернуть список всех делителей числа N (1<=N<=10^10) в
 -- порядке возрастания
 prob21 :: Integer -> [Integer]
-prob21 n = nub ((prob21helper n) ++ [n])
-    
+prob21 number = (sort . getUnorderedDivisors) number ++ [number]
 
-prob21helper n = (1:) $ nub $ concat [ [x, div n x] | x <- [2..limit], rem n x == 0 ]
-     where limit = (floor.sqrt.fromIntegral) n
+-- Получить все делители числа, кроме самого числа.
+getUnorderedDivisors :: Integral a => a -> [a]
+getUnorderedDivisors number = (leftPart++)
+    $ nub
+    $ concat [ [x, number `div` x] | x <- [2..limit], number `rem` x == 0 ]
+    where
+        limit = (floor . sqrt . fromIntegral) number
+        leftPart = if number == 0 || number == 1 then [] else [1]
+
+-- Получить все делители числа.
+getAllUnorderedDivisors :: Integer -> [Integer]
+getAllUnorderedDivisors number = self ++ getUnorderedDivisors number
+    where self = if number == 0 then [] else [number]
+
 ------------------------------------------------------------
 -- PROBLEM #22
 --
 -- Подсчитать произведение количеств букв i в словах из
 -- заданной строки (списка символов)
 prob22 :: String -> Integer
-prob22 str = if countLetterI str == 0 then 0 else product (filter (>0) (numsLetter (words str)))
-
-numsLetter :: [String] -> [Integer]
-numsLetter listWords = map (countLetterI) (listWords)
-
-countLetterI :: String -> Integer
-countLetterI xs = countLetters xs 'i'
-
-countLetters :: String -> Char -> Integer
-countLetters xs x = foldl (\count char -> if char == x then (count + 1) else count) 0 xs
+prob22 []    = 0
+prob22 input = product $ (map lettersCount) (words input)
+    where
+        lettersCount :: String -> Integer
+        lettersCount word = toInteger $ length (filter (=='i') word)
 
 ------------------------------------------------------------
 -- PROBLEM #23
