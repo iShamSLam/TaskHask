@@ -16,10 +16,10 @@ import Part4.Types
 
 import Control.Applicative
 import Control.Monad (msum)
-import Data.Maybe (maybeToList, fromJust)
+import Data.Maybe (maybeToList)
 import Data.Char (intToDigit, isSpace, isDigit)
 import Text.Read (readMaybe)
-import Data.List (isInfixOf, dropWhileEnd, elemIndex)
+import Data.List (dropWhileEnd)
 
 ------------------------------------------------------------
 -- PROBLEM #33
@@ -192,34 +192,42 @@ trySplitByAssignmentOperator :: String -> Maybe (String, String)
 trySplitByAssignmentOperator input
     | hasSingleOperator = Just
         (
-            trim $ getLeftPart input,
-            getRightPart input
+            trim $ getNameString input,
+            getValueString input
         )
     | otherwise = Nothing
     where
         hasSingleOperator = length (filter (==(':','=')) (pairwise input)) == 1
-        
-        getLeftPart :: String -> String
-        getLeftPart = safeInit . unpairwise . takeWhile (/=(':','=')) . pairwise
 
-        getRightPart :: String -> String
-        getRightPart = safeTail . unpairwise . tail . dropWhile (/=(':','=')) . pairwise
-
-        safeTail :: [a] -> [a]
-        safeTail []   = []
-        safeTail list = tail list
+        -- Получить строку, содержащую имя переменной,
+        -- опираясь на самый левый оператор ':='.
+        getNameString :: String -> String
+        getNameString = safeInit . unpairwise . takeWhile (/=(':','=')) . pairwise
 
         safeInit :: [a] -> [a]
         safeInit []   = []
         safeInit list = init list
 
+        -- Получить строку, содержащую значение переменной,
+        -- опираясь на самый левый оператор ':='.
+        getValueString :: String -> String
+        getValueString = safeTail . unpairwise . tail . dropWhile (/=(':','=')) . pairwise
+
+        safeTail :: [a] -> [a]
+        safeTail []   = []
+        safeTail list = tail list
+
 -- Удалить пробелы, находящиеся в начале и в конце строки.
 trim :: String -> String
-trim = trimStart . dropWhileEnd isSpace
+trim = trimStart . trimEnd
 
 -- Удалить пробелы, находящиеся в начале строки.
 trimStart :: String -> String
 trimStart = dropWhile isSpace
+
+-- Удалить пробелы, находящиеся в конце строки.
+trimEnd :: String -> String
+trimEnd = dropWhileEnd isSpace
 
 -- Преобразовать список в список пар - соседних элементов.
 pairwise :: [a] -> [(a, a)]
