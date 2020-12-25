@@ -48,4 +48,8 @@ test5 = testGroup "P05"
   [ testCase "prob5 98 10 == T" $ prob5 98 10 @?= True
   , testCase "prob5 77 10 == F" $ prob5 77 10 @?= False
   , testCase "prob5 13 13 == F" $ prob5 13 13 @?= False
+  , testCase "prob5 71 70 == F" $ prob5 71 70 @?= False
+  , testCase "prob5 1024 3 == T" $ prob5 1024 3 @?= True
+  , testCase "prob5 (2 ^ 20 + 3) 920 == T" $ prob5 (2 ^ 20 + 3) 920 @?= True
+  , testCase "prob5 (2 ^ 30 + 2) 3033170 == T" $ prob5 (2 ^ 30 + 2) 3033170 @?= True
   ]
