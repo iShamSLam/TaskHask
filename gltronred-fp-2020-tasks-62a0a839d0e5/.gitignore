@@ -1,0 +1,9 @@
+/dist-newstyle/
+/.ghcid
+.stack-work/
+*~
+/.idea/
+/out/
+*.iml
+*.cabal
+stack.yaml.lock
